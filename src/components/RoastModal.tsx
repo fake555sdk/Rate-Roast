@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, MessageCircle, Sparkles } from 'lucide-react';
 import { Profile } from '../types';
 import { useApp } from '../context/AppContext';
+import { PaymentService } from '../services/payments';
 
 interface RoastModalProps {
   profile: Profile;
@@ -29,9 +30,25 @@ export default function RoastModal({ profile, onClose }: RoastModalProps) {
         payload: { profileId: profile.userId, content: roastText.trim() }
       });
       onClose();
-    } else if (mode === 'ai' && selectedTheme) {
+    } else if (mode === 'ai' && selectedTheme && state.currentUser) {
       const theme = aiRoastThemes.find(t => t.id === selectedTheme);
-      if (theme && state.currentUser && state.currentUser.starsBalance >= theme.price) {
+      if (theme && state.currentUser.starsBalance >= theme.price) {
+        handleAIRoastPurchase(selectedTheme, theme.price);
+      }
+    }
+  };
+
+  const handleAIRoastPurchase = async (theme: string, price: number) => {
+    if (!state.currentUser) return;
+
+    try {
+      const result = await PaymentService.purchaseAIRoast(
+        state.currentUser.id,
+        profile.userId,
+        theme
+      );
+
+      if (result.success) {
         // Generate AI roast based on theme
         const aiRoasts = {
           savage: `${profile.user.firstName}'s personality is so basic, they make vanilla ice cream look exotic`,
@@ -43,11 +60,22 @@ export default function RoastModal({ profile, onClose }: RoastModalProps) {
         
         dispatch({
           type: 'ADD_ROAST',
-          payload: { profileId: profile.userId, content: aiRoasts[selectedTheme as keyof typeof aiRoasts] || 'AI roast failed to load!' }
+          payload: { 
+            profileId: profile.userId, 
+            content: aiRoasts[theme as keyof typeof aiRoasts] || 'AI roast failed to load!' 
+          }
         });
-        dispatch({ type: 'UPDATE_STARS', payload: { userId: state.currentUser.id, amount: -theme.price } });
+        dispatch({ 
+          type: 'UPDATE_STARS', 
+          payload: { userId: state.currentUser.id, amount: -price } 
+        });
         onClose();
+      } else {
+        alert(result.error || 'Failed to purchase AI roast');
       }
+    } catch (error) {
+      console.error('AI roast purchase error:', error);
+      alert('Failed to purchase AI roast');
     }
   };
 

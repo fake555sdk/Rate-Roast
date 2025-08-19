@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Star, MessageCircle, Users, Zap, Eye, EyeOff, Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { PaymentService } from '../services/payments';
 
 export default function ProfileDetail() {
   const { state, dispatch } = useApp();
@@ -19,9 +20,29 @@ export default function ProfileDetail() {
   };
 
   const handleUnlockRoasts = () => {
-    if (state.currentUser && state.currentUser.starsBalance >= 5) {
-      dispatch({ type: 'UNLOCK_ROASTS', payload: profile.userId });
-      dispatch({ type: 'UPDATE_STARS', payload: { userId: state.currentUser.id, amount: -5 } });
+    if (!state.currentUser) return;
+
+    handleRoastUnlock();
+  };
+
+  const handleRoastUnlock = async () => {
+    if (!state.currentUser) return;
+
+    try {
+      const result = await PaymentService.unlockRoasts(state.currentUser.id, profile.userId);
+      
+      if (result.success) {
+        dispatch({ type: 'UNLOCK_ROASTS', payload: profile.userId });
+        dispatch({ 
+          type: 'UPDATE_STARS', 
+          payload: { userId: state.currentUser.id, amount: -PaymentService.FEATURE_PRICES.ROAST_UNLOCK } 
+        });
+      } else {
+        alert(result.error || 'Failed to unlock roasts');
+      }
+    } catch (error) {
+      console.error('Roast unlock error:', error);
+      alert('Failed to unlock roasts');
     }
   };
 
