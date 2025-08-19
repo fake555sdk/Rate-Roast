@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Star } from 'lucide-react';
 import { Profile } from '../types';
 import { useApp } from '../context/AppContext';
+import AnimatedRating from './AnimatedRating';
 
 interface RatingModalProps {
   profile: Profile;
@@ -50,26 +51,12 @@ export default function RatingModal({ profile, onClose }: RatingModalProps) {
 
         <div className="mb-6">
           <p className="text-white/80 text-center mb-4">How would you rate this profile?</p>
-          <div className="flex justify-center gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
-              <button
-                key={rating}
-                onClick={() => setSelectedRating(rating)}
-                onMouseEnter={() => setHoveredRating(rating)}
-                onMouseLeave={() => setHoveredRating(0)}
-                className="transition-all duration-200 hover:scale-125"
-              >
-                <Star
-                  size={24}
-                  className={`${
-                    rating <= (hoveredRating || selectedRating)
-                      ? 'text-yellow-400 fill-current'
-                      : 'text-white/30'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+          <AnimatedRating
+            rating={selectedRating}
+            onRatingChange={setSelectedRating}
+            size="lg"
+            showAnimation={true}
+          />
           {selectedRating > 0 && (
             <p className="text-center mt-2 text-white font-semibold">
               {selectedRating}/10 - {

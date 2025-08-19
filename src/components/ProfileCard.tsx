@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Star, MessageCircle, Zap, Users } from 'lucide-react';
 import { Profile } from '../types';
 import { useApp } from '../context/AppContext';
+import { useRealtime } from '../hooks/useRealtime';
 import RatingModal from './RatingModal';
 import RoastModal from './RoastModal';
 
@@ -13,7 +14,32 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
   const { state, dispatch } = useApp();
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showRoastModal, setShowRoastModal] = useState(false);
+  const [liveStats, setLiveStats] = useState({
+    averageRating: profile.averageRating,
+    totalRatings: profile.totalRatings,
+    roastCount: profile.roastCount,
+  });
   
+  // Real-time updates for this profile
+  useRealtime({
+    profileId: profile.userId,
+    onRatingUpdate: (payload) => {
+      // Update live stats when new rating comes in
+      setLiveStats(prev => ({
+        ...prev,
+        totalRatings: prev.totalRatings + 1,
+        // Recalculate average (simplified)
+        averageRating: ((prev.averageRating * prev.totalRatings) + payload.new.score) / (prev.totalRatings + 1),
+      }));
+    },
+    onRoastUpdate: () => {
+      setLiveStats(prev => ({
+        ...prev,
+        roastCount: prev.roastCount + 1,
+      }));
+    },
+  });
+
   const isBoosted = profile.boostedUntil && profile.boostedUntil > new Date();
   const isOwnProfile = state.currentUser?.id === profile.userId;
   
@@ -68,15 +94,15 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Star className="text-yellow-400 fill-current" size={20} />
-              <span className="text-2xl font-bold text-white">{profile.averageRating}</span>
+              <span className="text-2xl font-bold text-white">{liveStats.averageRating.toFixed(1)}</span>
             </div>
-            <p className="text-white/70 text-xs">{profile.totalRatings} ratings</p>
+            <p className="text-white/70 text-xs">{liveStats.totalRatings} ratings</p>
           </div>
           
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <MessageCircle className="text-red-400" size={20} />
-              <span className="text-2xl font-bold text-white">{profile.roastCount}</span>
+              <span className="text-2xl font-bold text-white">{liveStats.roastCount}</span>
             </div>
             <p className="text-white/70 text-xs">roasts</p>
           </div>
