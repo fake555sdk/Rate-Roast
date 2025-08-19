@@ -23,6 +23,12 @@ export class NotificationService {
   }
 
   async initialize(): Promise<void> {
+    // Check if running in StackBlitz environment
+    if (typeof window !== 'undefined' && window.location.hostname.includes('stackblitz.io')) {
+      console.warn('Service Workers are not supported in StackBlitz environment. Notifications will use fallback methods.');
+      return;
+    }
+
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
         this.registration = await navigator.serviceWorker.register('/sw.js');
