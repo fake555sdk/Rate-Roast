@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { User, Profile, Rating, Roast, ReferralStats } from '../types';
 import { mockUsers, mockProfiles, mockRatings, mockRoasts, mockReferralStats } from '../data/mockData';
-import { apiService } from '../services/api.tsx';
 interface AppState {
   currentUser: User | null;
   profiles: Profile[];

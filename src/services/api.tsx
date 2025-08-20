@@ -1,143 +1,337 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { User, Profile, Rating, Roast, ReferralStats } from '../types';
-import { mockUsers, mockProfiles, mockRatings, mockRoasts, mockReferralStats } from '../data/mockData';
+import { supabase } from '../lib/supabase';
+import { User, Profile, Rating, Roast, Transaction, ReferralStats } from '../types';
 
-interface AppState {
-  currentUser: User | null;
-  profiles: Profile[];
-  ratings: Rating[];
-  roasts: Roast[];
-  referralStats: ReferralStats[];
-  activeTab: 'feed' | 'leaderboard' | 'profile' | 'referrals';
-  selectedProfile: Profile | null;
-  unlockedRoasts: Set<string>;
+interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  language_code?: string;
 }
 
-type AppAction =
-  | { type: 'SET_USER'; payload: User }
-  | { type: 'SET_ACTIVE_TAB'; payload: 'feed' | 'leaderboard' | 'profile' | 'referrals' }
-  | { type: 'SELECT_PROFILE'; payload: Profile | null }
-  | { type: 'ADD_RATING'; payload: { profileId: string; score: number } }
-  | { type: 'ADD_ROAST'; payload: { profileId: string; content: string } }
-  | { type: 'UNLOCK_ROASTS'; payload: string }
-  | { type: 'BOOST_PROFILE'; payload: string }
-  | { type: 'UPDATE_STARS'; payload: { userId: string; amount: number } };
+export class ApiService {
+  // User Management
+  static async createOrUpdateUser(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+    try {
+      // Check if user exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('telegram_id', telegramUser.id)
+        .single();
 
-const initialState: AppState = {
-  currentUser: mockUsers[0],
-  profiles: mockProfiles,
-  ratings: mockRatings,
-  roasts: mockRoasts,
-  referralStats: mockReferralStats,
-  activeTab: 'feed',
-  selectedProfile: null,
-  unlockedRoasts: new Set(),
-};
+      if (existingUser) {
+        // Update existing user
+        const { data: updatedUser, error } = await supabase
+          .from('users')
+          .update({
+            username: telegramUser.username,
+            first_name: telegramUser.first_name,
+            last_name: telegramUser.last_name,
+            avatar_url: telegramUser.photo_url,
+            language_code: telegramUser.language_code,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('telegram_id', telegramUser.id)
+          .select()
+          .single();
 
-const AppContext = createContext<{
-  state: AppState;
-  dispatch: React.Dispatch<AppAction>;
-} | null>(null);
+        if (error) throw error;
+        return updatedUser;
+      }
 
-function appReducer(state: AppState, action: AppAction): AppState {
-  switch (action.type) {
-    case 'SET_USER':
-      return { ...state, currentUser: action.payload };
-    case 'SET_ACTIVE_TAB':
-      return { ...state, activeTab: action.payload };
-    case 'SELECT_PROFILE':
-      return { ...state, selectedProfile: action.payload };
-    case 'ADD_RATING': {
-      const newRating: Rating = {
-        id: Date.now().toString(),
-        profileId: action.payload.profileId,
-        raterId: state.currentUser!.id,
-        score: action.payload.score,
-        timestamp: new Date(),
-      };
-      const updatedProfiles = state.profiles.map(profile => {
-        if (profile.userId === action.payload.profileId) {
-          const newTotal = profile.totalRatings + 1;
-          const newAverage = ((profile.averageRating * profile.totalRatings) + action.payload.score) / newTotal;
-          return {
-            ...profile,
-            averageRating: Math.round(newAverage * 10) / 10,
-            totalRatings: newTotal,
-          };
+      // Create new user
+      const referralCodeToUse = referralCode || this.generateReferralCode();
+      let referredBy = null;
+
+      if (referralCode && referralCode !== referralCodeToUse) {
+        const referrer = await this.validateReferralCode(referralCode);
+        if (referrer) {
+          referredBy = referrer;
         }
-        return profile;
-      });
-      return {
-        ...state,
-        ratings: [...state.ratings, newRating],
-        profiles: updatedProfiles,
-      };
+      }
+
+      const { data: newUser, error } = await supabase
+        .from('users')
+        .insert({
+          telegram_id: telegramUser.id,
+          username: telegramUser.username,
+          first_name: telegramUser.first_name,
+          last_name: telegramUser.last_name,
+          avatar_url: telegramUser.photo_url,
+          language_code: telegramUser.language_code || 'en',
+          referral_code: referralCodeToUse,
+          referred_by: referredBy,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create profile for new user
+      await this.createProfile(newUser.id);
+
+      // Process referral reward if applicable
+      if (referredBy) {
+        await this.processReferralReward(referredBy, newUser.id);
+      }
+
+      return newUser;
+    } catch (error) {
+      console.error('Error creating/updating user:', error);
+      throw error;
     }
-    case 'ADD_ROAST': {
-      const newRoast: Roast = {
-        id: Date.now().toString(),
-        profileId: action.payload.profileId,
-        content: action.payload.content,
-        timestamp: new Date(),
-        type: 'user',
-        isVisible: false,
-      };
-      const updatedProfiles = state.profiles.map(profile => {
-        if (profile.userId === action.payload.profileId) {
-          return { ...profile, roastCount: profile.roastCount + 1 };
-        }
-        return profile;
-      });
-      return {
-        ...state,
-        roasts: [...state.roasts, newRoast],
-        profiles: updatedProfiles,
-      };
+  }
+
+  static async getProfile(userId: string): Promise<Profile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
     }
-    case 'UNLOCK_ROASTS':
-      return {
-        ...state,
-        unlockedRoasts: new Set([...state.unlockedRoasts, action.payload]),
-      };
-    case 'BOOST_PROFILE': {
-      const updatedProfiles = state.profiles.map(profile => {
-        if (profile.userId === action.payload) {
-          return {
-            ...profile,
-            boostedUntil: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-          };
-        }
-        return profile;
-      });
-      return { ...state, profiles: updatedProfiles };
+  }
+
+  static async updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
     }
-    case 'UPDATE_STARS': {
-      if (!state.currentUser) return state;
-      const updatedUser = {
-        ...state.currentUser,
-        starsBalance: state.currentUser.starsBalance + action.payload.amount,
-      };
-      return { ...state, currentUser: updatedUser };
+  }
+
+  static async validateReferralCode(code: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('referral_code', code)
+        .single();
+
+      if (error || !data) return null;
+      return data.id;
+    } catch (error) {
+      console.error('Error validating referral code:', error);
+      return null;
     }
-    default:
-      return state;
+  }
+
+  // Profile Management
+  private static async createProfile(userId: string): Promise<Profile> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          bio: '',
+          is_public: true,
+          allow_anonymous_ratings: true,
+          allow_anonymous_roasts: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      throw error;
+    }
+  }
+
+  // Rating System
+  static async submitRating(profileId: string, score: number, raterId: string): Promise<Rating> {
+    try {
+      const { data, error } = await supabase
+        .from('ratings')
+        .insert({
+          profile_id: profileId,
+          rater_user_id: raterId,
+          score,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      throw error;
+    }
+  }
+
+  // Roast System
+  static async submitRoast(profileId: string, content: string, authorId: string): Promise<Roast> {
+    try {
+      const { data, error } = await supabase
+        .from('roasts')
+        .insert({
+          profile_id: profileId,
+          author_user_id: authorId,
+          content,
+          roast_type: 'user',
+          is_visible: false,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error submitting roast:', error);
+      throw error;
+    }
+  }
+
+  static async unlockRoasts(userId: string, profileId: string): Promise<void> {
+    try {
+      // Check if already unlocked
+      const { data: existing } = await supabase
+        .from('roast_unlocks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('profile_id', profileId)
+        .single();
+
+      if (existing) return; // Already unlocked
+
+      // Create unlock record
+      const { error } = await supabase
+        .from('roast_unlocks')
+        .insert({
+          user_id: userId,
+          profile_id: profileId,
+          stars_paid: 5,
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error unlocking roasts:', error);
+      throw error;
+    }
+  }
+
+  // Payment System
+  static async purchaseStars(userId: string, packageId: string, amount: number): Promise<Transaction> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          transaction_type: 'purchase',
+          amount,
+          description: `Purchased ${amount} stars`,
+          metadata: { package_id: packageId },
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update user balance
+      await supabase
+        .from('users')
+        .update({
+          stars_balance: supabase.sql`stars_balance + ${amount}`,
+        })
+        .eq('id', userId);
+
+      return data;
+    } catch (error) {
+      console.error('Error purchasing stars:', error);
+      throw error;
+    }
+  }
+
+  static async spendStars(userId: string, amount: number, description: string): Promise<Transaction> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          transaction_type: 'spend',
+          amount: -amount,
+          description,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update user balance
+      await supabase
+        .from('users')
+        .update({
+          stars_balance: supabase.sql`stars_balance - ${amount}`,
+        })
+        .eq('id', userId);
+
+      return data;
+    } catch (error) {
+      console.error('Error spending stars:', error);
+      throw error;
+    }
+  }
+
+  // Utility Methods
+  private static generateReferralCode(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  private static async processReferralReward(referrerId: string, referredId: string): Promise<void> {
+    try {
+      // Create referral record
+      await supabase
+        .from('referrals')
+        .insert({
+          referrer_id: referrerId,
+          referred_id: referredId,
+          reward_stars: 5,
+          is_rewarded: true,
+        });
+
+      // Award stars to referrer
+      await supabase
+        .from('users')
+        .update({
+          stars_balance: supabase.sql`stars_balance + 5`,
+        })
+        .eq('id', referrerId);
+
+      // Create transaction record
+      await supabase
+        .from('transactions')
+        .insert({
+          user_id: referrerId,
+          transaction_type: 'reward',
+          amount: 5,
+          description: 'Referral reward',
+          metadata: { referred_user_id: referredId },
+        });
+    } catch (error) {
+      console.error('Error processing referral reward:', error);
+    }
   }
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
-
-  return (
-    <AppContext.Provider value={{ state, dispatch }}>
-      {children}
-    </AppContext.Provider>
-  );
-}
-
-export function useApp() {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
-}
+export const apiService = new ApiService();
