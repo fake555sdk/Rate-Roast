@@ -23,8 +23,13 @@ export class NotificationService {
   }
 
   async initialize(): Promise<void> {
-    // Check if running in StackBlitz environment
-    if (typeof window !== 'undefined' && window.location.hostname.includes('stackblitz.io')) {
+    // Check if running in StackBlitz or WebContainer environment
+    if (typeof window !== 'undefined' && (
+      window.location.hostname.includes('stackblitz.io') ||
+      window.location.hostname.includes('webcontainer') ||
+      window.location.hostname.includes('bolt.new') ||
+      window.location.hostname.includes('localhost')
+    )) {
       console.warn('Service Workers are not supported in StackBlitz environment. Notifications will use fallback methods.');
       return;
     }
