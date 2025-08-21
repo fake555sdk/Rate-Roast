@@ -3,6 +3,8 @@ import { Star, MessageCircle, Zap, Users } from 'lucide-react';
 import { Profile } from '../types';
 import { useApp } from '../context/AppContext';
 import { useRealtime } from '../hooks/useRealtime';
+import { OptimizedImage } from '../hooks/useOptimizedImages';
+import { AnalyticsService } from '../services/analytics';
 import RatingModal from './RatingModal';
 import RoastModal from './RoastModal';
 
@@ -44,6 +46,7 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
   const isOwnProfile = state.currentUser?.id === profile.userId;
   
   const handleViewProfile = () => {
+    AnalyticsService.trackProfileView(profile.userId, state.currentUser?.id);
     dispatch({ type: 'SELECT_PROFILE', payload: profile });
     dispatch({ type: 'SET_ACTIVE_TAB', payload: 'profile' });
   };
@@ -71,10 +74,11 @@ export default function ProfileCard({ profile }: ProfileCardProps) {
         
         <div className="flex items-start gap-4 mb-4">
           <div className="relative">
-            <img
+            <OptimizedImage
               src={profile.user.avatar}
               alt={profile.user.username}
               className="w-16 h-16 rounded-full object-cover border-3 border-white/30"
+              optimization={{ maxWidth: 64, maxHeight: 64, quality: 85 }}
             />
             {profile.isOnline && (
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>

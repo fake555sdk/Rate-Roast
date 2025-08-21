@@ -6,6 +6,8 @@ import { useRealtime } from '../hooks/useRealtime';
 import { LeaderboardEntry } from '../types';
 import PullToRefresh from './PullToRefresh';
 import AchievementBadge from './AchievementBadge';
+import { SkeletonLeaderboard } from './LoadingSpinner';
+import { AnalyticsService } from '../services/analytics';
 
 export default function Leaderboard() {
   const { state } = useApp();
@@ -35,6 +37,7 @@ export default function Leaderboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    AnalyticsService.trackFeatureUsage('leaderboard_refresh', state.currentUser?.id);
     // Simulate API refresh
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
@@ -58,6 +61,10 @@ export default function Leaderboard() {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => setActiveTab('rated')}
+            onClick={() => {
+              setActiveTab('rated');
+              AnalyticsService.trackFeatureUsage('leaderboard_tab_switch', state.currentUser?.id, { tab: 'rated' });
+            }}
             className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
               activeTab === 'rated'
                 ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
@@ -69,6 +76,10 @@ export default function Leaderboard() {
           </button>
           <button
             onClick={() => setActiveTab('referrals')}
+            onClick={() => {
+              setActiveTab('referrals');
+              AnalyticsService.trackFeatureUsage('leaderboard_tab_switch', state.currentUser?.id, { tab: 'referrals' });
+            }}
             className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
               activeTab === 'referrals'
                 ? 'bg-gradient-to-r from-green-500 to-teal-600 text-white'
@@ -103,6 +114,7 @@ export default function Leaderboard() {
 
         {activeTab === 'rated' ? (
           <div className="space-y-3">
+            {refreshing && <SkeletonLeaderboard />}
             {ratedLeaderboard.map((entry) => (
               <div
                 key={entry.profile.userId}
@@ -151,6 +163,7 @@ export default function Leaderboard() {
           </div>
         ) : (
           <div className="space-y-3">
+            {refreshing && <SkeletonLeaderboard />}
             {referralLeaderboard.map((entry, index) => (
               <div
                 key={entry.userId}

@@ -1,14 +1,18 @@
 import React from 'react';
 import { Home, Trophy, User, Users, Star, ShoppingBag } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../hooks/useAuth';
 import { useState } from 'react';
 import StarsShop from './StarsShop';
 import TransactionHistory from './TransactionHistory';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 export default function Navigation() {
   const { state, dispatch } = useApp();
+  const { user } = useAuth();
   const [showStarsShop, setShowStarsShop] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const navItems = [
     { id: 'feed', icon: Home, label: 'Feed', color: 'from-blue-500 to-purple-600' },
@@ -45,13 +49,22 @@ export default function Navigation() {
       
       {/* Stars Balance */}
       {state.currentUser && (
-        <div 
-          className="absolute top-0 right-4 transform -translate-y-1/2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform"
-          onClick={() => setShowStarsShop(true)}
-        >
-          <Star className="fill-current" size={14} />
-          {state.currentUser.starsBalance}
-          <ShoppingBag size={12} className="ml-1 opacity-70" />
+        <div className="absolute top-0 right-4 transform -translate-y-1/2 flex items-center gap-2">
+          <button
+            onClick={() => setShowAnalytics(true)}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-2 rounded-full hover:scale-105 transition-transform"
+          >
+            <BarChart3 size={14} />
+          </button>
+          
+          <div 
+            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform"
+            onClick={() => setShowStarsShop(true)}
+          >
+            <Star className="fill-current" size={14} />
+            {state.currentUser.starsBalance}
+            <ShoppingBag size={12} className="ml-1 opacity-70" />
+          </div>
         </div>
       )}
       
@@ -61,6 +74,10 @@ export default function Navigation() {
       
       {showTransactionHistory && (
         <TransactionHistory onClose={() => setShowTransactionHistory(false)} />
+      )}
+      
+      {showAnalytics && (
+        <AnalyticsDashboard onClose={() => setShowAnalytics(false)} />
       )}
     </div>
   );

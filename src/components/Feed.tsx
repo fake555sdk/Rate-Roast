@@ -2,11 +2,13 @@ import React from 'react';
 import { useState, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useRealtime } from '../hooks/useRealtime';
+import { AnalyticsService } from '../services/analytics';
 import ProfileCard from './ProfileCard';
 import PullToRefresh from './PullToRefresh';
 import InfiniteScroll from './InfiniteScroll';
 import SwipeableCard from './SwipeableCard';
 import ConfettiEffect from './ConfettiEffect';
+import { SkeletonCard } from './LoadingSpinner';
 
 export default function Feed() {
   const { state } = useApp();
@@ -30,6 +32,7 @@ export default function Feed() {
 
   const handleRefresh = useCallback(async () => {
     setLoading(true);
+    AnalyticsService.trackFeatureUsage('pull_to_refresh', state.currentUser?.id);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     setPage(1);
@@ -54,12 +57,14 @@ export default function Feed() {
 
   const handleSwipeRight = useCallback((profile: any) => {
     console.log('Liked profile:', profile.user.username);
+    AnalyticsService.trackFeatureUsage('swipe_like', state.currentUser?.id, { profile_id: profile.userId });
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 100);
   }, []);
 
   const handleSwipeLeft = useCallback((profile: any) => {
     console.log('Passed profile:', profile.user.username);
+    AnalyticsService.trackFeatureUsage('swipe_pass', state.currentUser?.id, { profile_id: profile.userId });
   }, []);
   // Sort profiles: boosted first, then by rating
   const sortedProfiles = [...state.profiles].sort((a, b) => {
@@ -86,6 +91,13 @@ export default function Feed() {
           onLoadMore={handleLoadMore}
         >
           <div className="grid gap-6">
+            {loading && page === 1 && (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
+            )}
             {sortedProfiles.map((profile) => (
               <SwipeableCard
                 key={profile.userId}
