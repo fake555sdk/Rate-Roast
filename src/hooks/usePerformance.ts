@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface PerformanceMetrics {
   renderTime: number;
@@ -168,7 +168,7 @@ export function PerformanceMonitor({ children }: { children: React.ReactNode }) 
   // Show performance overlay in development
   if (process.env.NODE_ENV === 'development') {
     return (
-      <>
+      <React.Fragment>
         {children}
         <div className="fixed bottom-4 left-4 bg-black/80 text-white text-xs p-2 rounded font-mono z-50">
           <div>Render: {metrics.renderTime.toFixed(1)}ms</div>
@@ -176,9 +176,9 @@ export function PerformanceMonitor({ children }: { children: React.ReactNode }) 
           <div>FPS: {metrics.fps}</div>
           <div>Load: {metrics.loadTime}ms</div>
         </div>
-      </>
+      </React.Fragment>
     );
   }
 
-  return <>{children}</>;
+  return <React.Fragment>{children}</React.Fragment>;
 }
