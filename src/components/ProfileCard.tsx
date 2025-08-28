@@ -3,7 +3,7 @@ import { Star, MessageCircle, Zap, Users } from 'lucide-react';
 import { Profile } from '../types';
 import { useApp } from '../context/AppContext';
 import { useRealtime } from '../hooks/useRealtime';
-import { OptimizedImage } from '../hooks/useOptimizedImages';
+import { OptimizedImage } from '../hooks/useOptimizedImages.tsx';
 import { AnalyticsService } from '../services/analytics';
 import RatingModal from './RatingModal';
 import RoastModal from './RoastModal';

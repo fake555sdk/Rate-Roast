@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { PerformanceMonitor } from './hooks/usePerformance';
+import { PerformanceMonitor } from './hooks/usePerformance.tsx';
 import Feed from './components/Feed';
 import Leaderboard from './components/Leaderboard';
 import ProfileDetail from './components/ProfileDetail';
