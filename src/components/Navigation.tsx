@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Trophy, User, Users, Star, ShoppingBag } from 'lucide-react';
+import { Home, Trophy, User, Users, Star, ShoppingBag, BarChart3 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../hooks/useAuth';
 import { useState } from 'react';
