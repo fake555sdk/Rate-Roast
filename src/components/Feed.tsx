@@ -9,6 +9,7 @@ import InfiniteScroll from './InfiniteScroll';
 import SwipeableCard from './SwipeableCard';
 import ConfettiEffect from './ConfettiEffect';
 import { SkeletonCard } from './LoadingSpinner';
+import CommunityChallenge from './CommunityChallenge';
 
 export default function Feed() {
   const { state } = useApp();
@@ -16,6 +17,7 @@ export default function Feed() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showChallenges, setShowChallenges] = useState(false);
 
   // Real-time updates
   useRealtime({
@@ -83,6 +85,13 @@ export default function Feed() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">🔥 Rate & Roast</h1>
           <p className="text-white/70">Where profiles get rated and roasted!</p>
+          
+          <button
+            onClick={() => setShowChallenges(true)}
+            className="mt-4 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+          >
+            🏆 Community Challenges
+          </button>
         </div>
 
         <InfiniteScroll
@@ -113,6 +122,20 @@ export default function Feed() {
       </div>
       
       <ConfettiEffect trigger={showConfetti} />
+      
+      {showChallenges && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-lg rounded-2xl p-6 w-full max-w-lg border border-white/20 max-h-[90vh] overflow-y-auto">
+            <CommunityChallenge />
+            <button
+              onClick={() => setShowChallenges(false)}
+              className="w-full mt-4 bg-white/20 hover:bg-white/30 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </PullToRefresh>
   );
 }
